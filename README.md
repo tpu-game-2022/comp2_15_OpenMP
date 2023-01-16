@@ -21,6 +21,9 @@ OpenMPを使って並列化してください。
 # 進め方
 * 本リポジトリをforkしてください
 * リポジトリをローカルにダウンロードしてください
+* ターミナルからコマンドを打ち込んでください
+  * git submodule init
+  * git submodule update
 * Visual Studio 2022でソリューションを立ち上げてください。
 * OpenMP_test.cppを書き換えて並列化してください。
 * 更新内容をコミットしてください
