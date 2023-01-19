@@ -62,8 +62,7 @@ bool blur(const char* filename, int num)
 
 	auto start = system_clock::now();// 時間計測用：気にしないこと
 
-
-	//結果が混ざらないように 
+	//依存関係を混ぜないようにするためのバッファ
 	unsigned char* pixels_buf = (unsigned char*)malloc(bpp * width * height);
 	if (pixels_buf == NULL) return false;
 
@@ -164,8 +163,8 @@ int main()
 {
 	const char* filename = "two_sisters.png";
 
-	//monochrome(filename);
-	blur(filename, 1000);
+	monochrome(filename);
+	blur(filename, 100000);
 
 	return 0;
 }
