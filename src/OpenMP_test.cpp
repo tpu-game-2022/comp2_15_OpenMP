@@ -23,6 +23,7 @@ bool monochrome(const char* filename)
     auto start = system_clock::now();// 時間計測用：気にしないこと
 
     // ■ OpenMPを使って並列化してください。
+#pragma omp parallel for
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             unsigned char* r = &pixels[(y * width + x) * bpp + 0];
@@ -61,6 +62,7 @@ bool blur(const char *filename, int num)
 
     // ■ OpenMPを使って並列化してください。
     // 依存性があり、並列化すると処理の順番によって結果が変わる可能性があるので、変わらないように注意すること
+#pragma omp parallel
     for (int i = 0; i < num; i++) {
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
@@ -79,6 +81,7 @@ bool blur(const char *filename, int num)
                     cb += *(b - bpp);
                     pixel_count++;
                 }
+#pragma omp barrier
                 // 右の色を加える
                 if (x < width - 1) {
                     cr += *(r + bpp);
@@ -86,6 +89,7 @@ bool blur(const char *filename, int num)
                     cb += *(b + bpp);
                     pixel_count++;
                 }
+#pragma omp barrier
                 // 上の色を加える
                 if (0 < y) {
                     cr += *(r - width * bpp);
@@ -93,6 +97,7 @@ bool blur(const char *filename, int num)
                     cb += *(b - width * bpp);
                     pixel_count++;
                 }
+#pragma omp barrier
                 // 下の色を加える
                 if (y < height - 1) {
                     cr += *(r + width * bpp);
@@ -101,9 +106,12 @@ bool blur(const char *filename, int num)
                     pixel_count++;
                 }
                 // そのまま平均をとると桁落ちで暗くなるので、0.5だけ明るくする
-                *r = (cr + pixel_count / 2) / pixel_count;
-                *g = (cg + pixel_count / 2) / pixel_count;
-                *b = (cb + pixel_count / 2) / pixel_count;
+#pragma omp barrier
+                {
+                    *r = (cr + pixel_count / 2) / pixel_count;
+                    *g = (cg + pixel_count / 2) / pixel_count;
+                    *b = (cb + pixel_count / 2) / pixel_count;
+                }
             }
         }
     }
