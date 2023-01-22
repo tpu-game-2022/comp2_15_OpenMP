@@ -23,7 +23,9 @@ bool monochrome(const char* filename)
     auto start = system_clock::now();// 時間計測用：気にしないこと
 
     // ■ OpenMPを使って並列化してください。
+#pragma omp parallel for
     for (int y = 0; y < height; y++) {
+        #pragma omp parallel for
         for (int x = 0; x < width; x++) {
             unsigned char* r = &pixels[(y * width + x) * bpp + 0];
             unsigned char* g = &pixels[(y * width + x) * bpp + 1];
@@ -61,8 +63,11 @@ bool blur(const char *filename, int num)
 
     // ■ OpenMPを使って並列化してください。
     // 依存性があり、並列化すると処理の順番によって結果が変わる可能性があるので、変わらないように注意すること
+#pragma omp parallel for
     for (int i = 0; i < num; i++) {
+        #pragma omp sections for
         for (int y = 0; y < height; y++) {
+            #pragma omp section for
             for (int x = 0; x < width; x++) {
                 unsigned char* r = &pixels[(y * width + x) * bpp + 0];
                 unsigned char* g = &pixels[(y * width + x) * bpp + 1];
