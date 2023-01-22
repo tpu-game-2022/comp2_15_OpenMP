@@ -23,6 +23,8 @@ bool monochrome(const char* filename)
     auto start = system_clock::now();// 時間計測用：気にしないこと
 
     // ■ OpenMPを使って並列化してください。
+
+#pragma omp parallel for
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             unsigned char* r = &pixels[(y * width + x) * bpp + 0];
@@ -61,6 +63,8 @@ bool blur(const char *filename, int num)
 
     // ■ OpenMPを使って並列化してください。
     // 依存性があり、並列化すると処理の順番によって結果が変わる可能性があるので、変わらないように注意すること
+
+#pragma omp parallel for
     for (int i = 0; i < num; i++) {
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
@@ -72,6 +76,7 @@ bool blur(const char *filename, int num)
                 int cg = *g;
                 int cb = *b;
                 int pixel_count = 1;
+#pragma omp section 
                 // 左の色を加える
                 if (0 < x) {
                     cr += *(r - bpp);
@@ -80,6 +85,7 @@ bool blur(const char *filename, int num)
                     pixel_count++;
                 }
                 // 右の色を加える
+#pragma omp section 
                 if (x < width - 1) {
                     cr += *(r + bpp);
                     cg += *(g + bpp);
@@ -87,6 +93,7 @@ bool blur(const char *filename, int num)
                     pixel_count++;
                 }
                 // 上の色を加える
+#pragma omp section 
                 if (0 < y) {
                     cr += *(r - width * bpp);
                     cg += *(g - width * bpp);
@@ -94,6 +101,7 @@ bool blur(const char *filename, int num)
                     pixel_count++;
                 }
                 // 下の色を加える
+#pragma omp section 
                 if (y < height - 1) {
                     cr += *(r + width * bpp);
                     cg += *(g + width * bpp);
@@ -129,3 +137,9 @@ int main()
 
     return 0;
 }
+
+//default 3822sec.
+  //#pragma omp for　実装後　3078 micro sec.
+  //#pragma omp parallel for　実装後 2911 micro sec.
+  //#pragma omp sections　実装後 2843 micro sec.
+  //実行時間は実行する度に異なりますが、defaultから約500～1000 micro sec、差がある事がわかりました。
