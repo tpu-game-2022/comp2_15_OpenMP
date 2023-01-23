@@ -23,8 +23,11 @@ bool monochrome(const char* filename)
     auto start = system_clock::now();// 時間計測用：気にしないこと
 
     // ■ OpenMPを使って並列化してください。
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
+#pragma omp parallel for 
+    for (int y = 0; y < height; y++)
+    {
+        for (int x = 0; x < width; x++)
+        {
             unsigned char* r = &pixels[(y * width + x) * bpp + 0];
             unsigned char* g = &pixels[(y * width + x) * bpp + 1];
             unsigned char* b = &pixels[(y * width + x) * bpp + 2];
@@ -49,75 +52,112 @@ bool monochrome(const char* filename)
 }
 
 // bokhe
-bool blur(const char *filename, int num)
+bool blur(const char* filename, int num)
 {
-    int width, height; //画像サイズの格納先
-    int bpp; //一画素のバイト数
-    unsigned char* pixels = stbi_load(filename, &width, &height, &bpp, 0);
+	int width, height; //画像サイズの格納先
+	int bpp; //一画素のバイト数
+	unsigned char* pixels = stbi_load(filename, &width, &height, &bpp, 0);
 
-    if (pixels == NULL) return false;// ファイルが読めなかった
+	if (pixels == NULL) return false;// ファイルが読めなかった
 
-    auto start = system_clock::now();// 時間計測用：気にしないこと
+	auto start = system_clock::now();// 時間計測用：気にしないこと
 
-    // ■ OpenMPを使って並列化してください。
-    // 依存性があり、並列化すると処理の順番によって結果が変わる可能性があるので、変わらないように注意すること
-    for (int i = 0; i < num; i++) {
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                unsigned char* r = &pixels[(y * width + x) * bpp + 0];
-                unsigned char* g = &pixels[(y * width + x) * bpp + 1];
-                unsigned char* b = &pixels[(y * width + x) * bpp + 2];
 
-                int cr = *r;
-                int cg = *g;
-                int cb = *b;
-                int pixel_count = 1;
-                // 左の色を加える
-                if (0 < x) {
-                    cr += *(r - bpp);
-                    cg += *(g - bpp);
-                    cb += *(b - bpp);
-                    pixel_count++;
-                }
-                // 右の色を加える
-                if (x < width - 1) {
-                    cr += *(r + bpp);
-                    cg += *(g + bpp);
-                    cb += *(b + bpp);
-                    pixel_count++;
-                }
-                // 上の色を加える
-                if (0 < y) {
-                    cr += *(r - width * bpp);
-                    cg += *(g - width * bpp);
-                    cb += *(b - width * bpp);
-                    pixel_count++;
-                }
-                // 下の色を加える
-                if (y < height - 1) {
-                    cr += *(r + width * bpp);
-                    cg += *(g + width * bpp);
-                    cb += *(b + width * bpp);
-                    pixel_count++;
-                }
-                // そのまま平均をとると桁落ちで暗くなるので、0.5だけ明るくする
-                *r = (cr + pixel_count / 2) / pixel_count;
-                *g = (cg + pixel_count / 2) / pixel_count;
-                *b = (cb + pixel_count / 2) / pixel_count;
-            }
-        }
-    }
+	//結果が混ざらないように 
+	unsigned char* pixels_buf = (unsigned char*)malloc(bpp * width * height);
+	if (pixels_buf == NULL) return false;
 
-    // 時間計測用：気にしないこと
-    auto end = system_clock::now();
-    std::cout << duration_cast<milliseconds>(end - start).count() << " milli sec. \n";
+	unsigned char* reader = pixels;
+	unsigned char* writer = pixels_buf;
 
-    // ファイルの保存
-    stbi_write_png("blur.png", static_cast<int>(width), static_cast<int>(height), bpp, pixels, 0);
-    // メモリの破棄
-    stbi_image_free(pixels);
+	// ■ OpenMPを使って並列化してください。
+	// 依存性があり、並列化すると処理の順番によって結果が変わる可能性があるので、変わらないように注意すること
+	for (int i = 0; i < num; i++)
+	{
+#pragma omp parallel for
+		for (int y = 0; y < height; y++)
+		{
+			for (int x = 0; x < width; x++)
+			{
+				unsigned char* r = &reader[(y * width + x) * bpp + 0];
+				unsigned char* g = &reader[(y * width + x) * bpp + 1];
+				unsigned char* b = &reader[(y * width + x) * bpp + 2];
 
-    return true;
+				int cr = *r;
+				int cg = *g;
+				int cb = *b;
+				int pixel_count = 1;
+
+				// 左の色を加える
+#pragma omp parallel sections 
+				{
+#pragma omp section 
+					if (0 < x)
+					{
+						cr += *(r - bpp);
+						cg += *(g - bpp);
+						cb += *(b - bpp);
+						pixel_count++;
+					}
+
+					// 右の色を加える
+#pragma omp section 
+					if (x < width - 1)
+					{
+						cr += *(r + bpp);
+						cg += *(g + bpp);
+						cb += *(b + bpp);
+						pixel_count++;
+					}
+
+					// 上の色を加える
+#pragma omp section 
+					if (0 < y)
+					{
+						cr += *(r - width * bpp);
+						cg += *(g - width * bpp);
+						cb += *(b - width * bpp);
+						pixel_count++;
+					}
+
+					// 下の色を加える
+#pragma omp section 
+					if (y < height - 1)
+					{
+						cr += *(r + width * bpp);
+						cg += *(g + width * bpp);
+						cb += *(b + width * bpp);
+						pixel_count++;
+					}
+				}
+
+				r = &writer[(y * width + x) * bpp + 0];
+				g = &writer[(y * width + x) * bpp + 1];
+				b = &writer[(y * width + x) * bpp + 2];
+
+				// そのまま平均をとると桁落ちで暗くなるので、0.5だけ明るくする
+				*r = (cr + pixel_count / 2) / pixel_count;
+				*g = (cg + pixel_count / 2) / pixel_count;
+				*b = (cb + pixel_count / 2) / pixel_count;
+			}
+		}
+
+		auto ptr = reader;
+		reader = writer;
+		writer = ptr;
+	}
+
+	// 時間計測用：気にしないこと
+	auto end = system_clock::now();
+	std::cout << duration_cast<milliseconds>(end - start).count() << " milli sec. \n";
+
+	// ファイルの保存
+	stbi_write_png("blur.png", static_cast<int>(width), static_cast<int>(height), bpp, pixels, 0);
+	// メモリの破棄
+	stbi_image_free(pixels);
+	free(pixels_buf);
+
+	return true;
 }
 
 int main()
